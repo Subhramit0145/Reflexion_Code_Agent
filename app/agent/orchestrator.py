@@ -8,8 +8,7 @@ Orchestrator -- drives the complete Reflexion loop.
         4. Reflector analyses the failure -> stores reflection
         5. Goto 1
 
-This module wires the Actor, Evaluator, Reflector, and Memory together
-into a cohesive, observable pipeline.
+
 """
 
 from __future__ import annotations
@@ -31,24 +30,7 @@ def run_reflexion_loop(
     store: ReflectionStore,
     max_iterations: int | None = None,
 ) -> AgentRun:
-    """
-    Execute the full Reflexion loop for a single task.
-
-    Parameters
-    ----------
-    task : TaskSpec
-        The coding problem to solve.
-    store : ReflectionStore
-        Long-term episodic memory for cross-task reflections.
-    max_iterations : int | None
-        Override for settings.max_iterations.
-
-    Returns
-    -------
-    AgentRun
-        Complete trajectory including all attempts, reflections,
-        and outcome metadata.
-    """
+   
     max_iter = max_iterations or settings.max_iterations
     buffer = TrajectoryBuffer()
     agent_run = AgentRun(task=task)
@@ -69,7 +51,10 @@ def run_reflexion_loop(
 
         # -- 1. Actor: generate candidate code --------------------------------
         all_reflections = prior_reflections + buffer.reflections
-        code = generate_code(task, all_reflections)
+        prev_code = (
+            buffer.last_attempt.generated_code if buffer.last_attempt else None
+        )
+        code = generate_code(task, all_reflections, previous_code=prev_code)
 
         # -- 2. Evaluator: run tests ------------------------------------------
         exec_result = evaluate(task, code)

@@ -147,6 +147,12 @@ def main() -> None:
         description="Reflexion Code Agent -- Autonomous Code Debugger CLI"
     )
     parser.add_argument(
+        "--prompt",
+        type=str,
+        default=None,
+        help="Any coding question or natural-language problem prompt to solve",
+    )
+    parser.add_argument(
         "--task-file",
         type=Path,
         default=None,
@@ -163,7 +169,12 @@ def main() -> None:
     _print_banner()
 
     # -- Load task ---------------------------------------------------------
-    if args.task_file:
+    if args.prompt:
+        from app.agent.synthesizer import synthesize_task_spec
+        console.print(f"[bold cyan]Synthesizing specification from prompt...[/]")
+        task = synthesize_task_spec(args.prompt)
+        console.print(f"[green]Synthesized task:[/] [bold]{task.task_id}[/] ({task.function_signature})")
+    elif args.task_file:
         if not args.task_file.exists():
             console.print(f"[bold red]Error:[/] {args.task_file} not found")
             sys.exit(1)

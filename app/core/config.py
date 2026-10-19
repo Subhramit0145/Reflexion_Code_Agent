@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # -- Model selection ----------------------------------------------------
     model_name: str = Field(
-        default="gemini/gemini-3.6-flash",
+        default="gemini/gemini-3.5-flash-lite",
         description="Any model string accepted by LiteLLM",
     )
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)

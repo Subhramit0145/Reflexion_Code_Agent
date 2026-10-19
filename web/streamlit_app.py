@@ -16,6 +16,7 @@ Usage
 from __future__ import annotations
 
 import json
+import os
 import time
 import sys
 from pathlib import Path
@@ -168,16 +169,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Example Tasks ────────────────────────────────────────
+# Descriptions are kept deliberately MINIMAL — no edge-case hints.
+# This lets the model write a natural "first draft" that may miss
+# tricky cases, which the sandbox catches and the Reflector fixes.
 
 EXAMPLE_TASKS = {
     "Select an example...": None,
+
+    # ── Easy ──────────────────────────────────────────────
     "Fibonacci (easy)": TaskSpec(
         task_id="demo-fibonacci",
-        description=(
-            "Implement a function fibonacci(n) that returns the n-th Fibonacci "
-            "number (0-indexed). fibonacci(0) = 0, fibonacci(1) = 1, "
-            "fibonacci(10) = 55. Must handle n = 0 correctly."
-        ),
+        description="Implement a function that returns the n-th Fibonacci number.",
         function_signature="def fibonacci(n: int) -> int:",
         test_code=(
             "assert fibonacci(0) == 0, f'Expected 0, got {fibonacci(0)}'\n"
@@ -189,12 +191,25 @@ EXAMPLE_TASKS = {
             "print('6 passed')\n"
         ),
     ),
+    "Palindrome Checker (easy)": TaskSpec(
+        task_id="demo-palindrome",
+        description="Implement a function that checks if a string is a palindrome.",
+        function_signature="def is_palindrome(s: str) -> bool:",
+        test_code=(
+            "assert is_palindrome('radar') == True\n"
+            "assert is_palindrome('hello') == False\n"
+            "assert is_palindrome('a') == True\n"
+            "assert is_palindrome('') == True\n"
+            "print('4 passed')\n"
+        ),
+    ),
+
+    # ── Medium ────────────────────────────────────────────
     "Two Sum (medium)": TaskSpec(
         task_id="two-sum",
         description=(
-            "Given a list of integers nums and an integer target, return "
-            "the indices of the two numbers that add up to target. "
-            "Return indices in ascending order. Each input has exactly one solution."
+            "Given a list of integers and a target, return the indices "
+            "of the two numbers that add up to the target."
         ),
         function_signature="def two_sum(nums: list[int], target: int) -> list[int]:",
         test_code=(
@@ -206,26 +221,22 @@ EXAMPLE_TASKS = {
     ),
     "Flatten Nested List (medium)": TaskSpec(
         task_id="flatten-nested",
-        description=(
-            "Given a nested list of integers, flatten it into a single list. "
-            "Handle arbitrary nesting depth. "
-            "Example: [[1,2],[3,[4,5]],6] -> [1,2,3,4,5,6]"
-        ),
+        description="Given a nested list of integers, flatten it into a single list.",
         function_signature="def flatten(lst) -> list[int]:",
         test_code=(
             "assert flatten([1, 2, 3]) == [1, 2, 3]\n"
             "assert flatten([[1, 2], [3, [4, 5]], 6]) == [1, 2, 3, 4, 5, 6]\n"
             "assert flatten([]) == []\n"
             "assert flatten([1, [2, [3, [4, [5]]]]]) == [1, 2, 3, 4, 5]\n"
-            "print('4 passed')\n"
+            "assert flatten([[[1]], [[2]], [[3]]]) == [1, 2, 3]\n"
+            "print('5 passed')\n"
         ),
     ),
     "Valid Parentheses (medium)": TaskSpec(
         task_id="valid-parens",
         description=(
-            "Given a string s containing just '(', ')', '{', '}', '[' and ']', "
-            "determine if the input string is valid. Open brackets must be "
-            "closed by the same type in the correct order. Empty string is valid."
+            "Given a string containing just brackets, determine if the "
+            "input string is valid."
         ),
         function_signature="def is_valid(s: str) -> bool:",
         test_code=(
@@ -236,15 +247,141 @@ EXAMPLE_TASKS = {
             "assert is_valid('{[]}') == True\n"
             "assert is_valid('') == True\n"
             "assert is_valid('(') == False\n"
+            "assert is_valid(']') == False\n"
+            "print('8 passed')\n"
+        ),
+    ),
+
+    # ── Hard (Multi-Iteration Demonstrations) ──────────────
+    "String Compression (hard - 2 iters)": TaskSpec(
+        task_id="demo-compress",
+        description=(
+            "Implement a function compress(s: str) -> str that performs run-length compression. "
+            "Consecutive duplicate characters should be replaced with the character and its frequency. "
+            "If the compressed string would not be shorter than the original string, return the original string."
+        ),
+        function_signature="def compress(s: str) -> str:",
+        test_code=(
+            "assert compress('aabcccccaaa') == 'a2bc5a3', f'Got {compress(\"aabcccccaaa\")}'\n"
+            "assert compress('abcd') == 'abcd', f'Got {compress(\"abcd\")}'\n"
+            "assert compress('') == '', f'Got {compress(\"\")}'\n"
+            "assert compress('a') == 'a', f'Got {compress(\"a\")}'\n"
+            "assert compress('abbbbbbbbbb') == 'ab10', f'Got {compress(\"abbbbbbbbbb\")}'\n"
+            "print('5 passed')\n"
+        ),
+    ),
+    "Nested JSON Path Engine (hard - 2 iters)": TaskSpec(
+        task_id="nested-key-path",
+        description=(
+            "Implement a function query_json(data: dict | list, path: str) that retrieves a nested value "
+            "using a string path syntax with dot-notation and array indices (e.g., 'users[0].profile.email'). "
+            "If an index or key does not exist, return None instead of raising an error. "
+            "If a key contains special characters escaped with backticks like 'data.`special.key`', handle it properly."
+        ),
+        function_signature="def query_json(data: dict | list, path: str):",
+        test_code=(
+            "d = {'users': [{'profile': {'email': 'a@b.com'}}, {'profile': None}], 'data': {'special.key': 42}}\n"
+            "assert query_json(d, 'users[0].profile.email') == 'a@b.com'\n"
+            "assert query_json(d, 'users[1].profile') is None\n"
+            "assert query_json(d, 'users[2].profile') is None\n"
+            "assert query_json(d, 'users[0].profile.phone') is None\n"
+            "assert query_json(d, 'data.`special.key`') == 42\n"
+            "assert query_json(d, '') == d\n"
+            "print('6 passed')\n"
+        ),
+    ),
+    "Expression Parentheses Simplifier (hard - 3 iters)": TaskSpec(
+        task_id="remove-redundant-parens",
+        description=(
+            "Implement a function remove_redundant_parens(expr: str) -> str. "
+            "Remove all unnecessary parentheses from a valid algebraic expression with '+', '-', '*', and single-character variables. "
+            "Rules: "
+            "1. Parentheses surrounding the entire expression when not needed by an outer operator should be removed: '((a + b))' -> 'a + b'. "
+            "2. Parentheses around operands whose operator has higher or equal precedence in an associative context should be removed: '(a * b) + c' -> 'a * b + c'. "
+            "3. Parentheses needed for precedence must be kept: '(a + b) * c' stays '(a + b) * c'. "
+            "4. Parentheses after a subtraction must be kept if they contain '+' or '-': 'a - (b + c)' stays 'a - (b + c)'."
+        ),
+        function_signature="def remove_redundant_parens(expr: str) -> str:",
+        test_code=(
+            "assert remove_redundant_parens('((a + b))') == 'a + b'\n"
+            "assert remove_redundant_parens('(a * b) + c') == 'a * b + c'\n"
+            "assert remove_redundant_parens('(a + b) * c') == '(a + b) * c'\n"
+            "assert remove_redundant_parens('a - (b + c)') == 'a - (b + c)', 'Subtraction scope must preserve parens'\n"
+            "assert remove_redundant_parens('a + (b + c)') == 'a + b + c'\n"
+            "print('5 passed')\n"
+        ),
+    ),
+    "Merge Intervals (hard)": TaskSpec(
+        task_id="merge-intervals",
+        description=(
+            "Given a collection of intervals, merge all overlapping intervals."
+        ),
+        function_signature="def merge(intervals: list[list[int]]) -> list[list[int]]:",
+        test_code=(
+            "assert merge([[1,3],[2,6],[8,10],[15,18]]) == [[1,6],[8,10],[15,18]]\n"
+            "assert merge([[1,4],[4,5]]) == [[1,5]]\n"
+            "assert merge([[1,4],[0,4]]) == [[0,4]]\n"
+            "assert merge([]) == []\n"
+            "assert merge([[1,4],[2,3]]) == [[1,4]]\n"
+            "assert merge([[2,3],[4,5],[6,7],[8,9],[1,10]]) == [[1,10]]\n"
+            "print('6 passed')\n"
+        ),
+    ),
+    "Spiral Matrix (hard)": TaskSpec(
+        task_id="spiral-matrix",
+        description=(
+            "Given an m x n matrix, return all elements in spiral order."
+        ),
+        function_signature="def spiral_order(matrix: list[list[int]]) -> list[int]:",
+        test_code=(
+            "assert spiral_order([[1,2,3],[4,5,6],[7,8,9]]) == [1,2,3,6,9,8,7,4,5]\n"
+            "assert spiral_order([[1,2,3,4],[5,6,7,8],[9,10,11,12]]) == [1,2,3,4,8,12,11,10,9,5,6,7]\n"
+            "assert spiral_order([[1]]) == [1]\n"
+            "assert spiral_order([]) == []\n"
+            "assert spiral_order([[1,2],[3,4]]) == [1,2,4,3]\n"
+            "assert spiral_order([[1],[2],[3]]) == [1,2,3]\n"
+            "print('6 passed')\n"
+        ),
+    ),
+    "Eval Reverse Polish Notation (hard)": TaskSpec(
+        task_id="eval-rpn",
+        description=(
+            "Evaluate an arithmetic expression in Reverse Polish Notation. "
+            "Valid operators are +, -, *, /."
+        ),
+        function_signature="def eval_rpn(tokens: list[str]) -> int:",
+        test_code=(
+            "assert eval_rpn(['2','1','+','3','*']) == 9\n"
+            "assert eval_rpn(['4','13','5','/','+']) == 6\n"
+            "assert eval_rpn(['10','6','9','3','+','-11','*','/','*','17','+','5','+']) == 22\n"
+            "assert eval_rpn(['3','4','-']) == -1\n"
+            "assert eval_rpn(['6','-132','/']) == 0\n"
+            "print('5 passed')\n"
+        ),
+    ),
+    "Longest Substring Without Repeating (hard)": TaskSpec(
+        task_id="longest-substr",
+        description=(
+            "Given a string, find the length of the longest substring "
+            "without repeating characters."
+        ),
+        function_signature="def length_of_longest_substring(s: str) -> int:",
+        test_code=(
+            "assert length_of_longest_substring('abcabcbb') == 3\n"
+            "assert length_of_longest_substring('bbbbb') == 1\n"
+            "assert length_of_longest_substring('pwwkew') == 3\n"
+            "assert length_of_longest_substring('') == 0\n"
+            "assert length_of_longest_substring(' ') == 1\n"
+            "assert length_of_longest_substring('dvdf') == 3\n"
+            "assert length_of_longest_substring('abba') == 2\n"
             "print('7 passed')\n"
         ),
     ),
     "Max Subarray / Kadane (hard)": TaskSpec(
         task_id="max-subarray",
         description=(
-            "Given an integer array nums, find the contiguous subarray "
-            "with the largest sum and return that sum. The array contains "
-            "at least one number. Must handle all-negative arrays correctly."
+            "Given an integer array, find the contiguous subarray "
+            "with the largest sum and return that sum."
         ),
         function_signature="def max_subarray(nums: list[int]) -> int:",
         test_code=(
@@ -253,7 +390,8 @@ EXAMPLE_TASKS = {
             "assert max_subarray([5,4,-1,7,8]) == 23\n"
             "assert max_subarray([-1]) == -1\n"
             "assert max_subarray([-2, -1]) == -1\n"
-            "print('5 passed')\n"
+            "assert max_subarray([-3, -2, -1, -4]) == -1\n"
+            "print('6 passed')\n"
         ),
     ),
 }
@@ -266,6 +404,12 @@ if "is_running" not in st.session_state:
     st.session_state.is_running = False
 if "live_iterations" not in st.session_state:
     st.session_state.live_iterations = []
+if "custom_prompt_box" not in st.session_state:
+    st.session_state.custom_prompt_box = ""
+if "synth_task" not in st.session_state:
+    st.session_state.synth_task = None
+if "synth_prompt" not in st.session_state:
+    st.session_state.synth_prompt = ""
 
 # ── Sidebar ──────────────────────────────────────────────
 
@@ -275,14 +419,20 @@ with st.sidebar:
 
     model_name = st.text_input(
         "LLM Model",
-        value="gemini/gemini-3.6-flash",
+        value=os.getenv("MODEL_NAME", "gemini/gemini-3.5-flash-lite"),
         help="Any LiteLLM-compatible model string",
     )
 
+    default_key = (
+        os.getenv("GEMINI_API_KEY", "")
+        if "gemini" in model_name.lower()
+        else os.getenv("OPENAI_API_KEY", "")
+    )
     api_key = st.text_input(
         "API Key",
+        value=default_key,
         type="password",
-        help="Your LLM provider API key",
+        help="Your LLM provider API key (pre-filled from .env if available)",
     )
 
     st.divider()
@@ -299,9 +449,9 @@ with st.sidebar:
         "Temperature",
         min_value=0.0,
         max_value=1.5,
-        value=0.2,
+        value=0.7,
         step=0.1,
-        help="LLM sampling temperature (lower = more deterministic)",
+        help="LLM sampling temperature (0.7-1.0 recommended for Gemini 3)",
     )
 
     timeout = st.slider(
@@ -311,6 +461,19 @@ with st.sidebar:
         value=10,
         help="Sandbox timeout per code execution",
     )
+
+    st.divider()
+    st.markdown("### 🧠 Episodic Memory Mode")
+    warm_start = st.checkbox(
+        "Enable Warm Start (Inject Past Memory)",
+        value=False,
+        help="When UNCHECKED (Cold Start - recommended for video demo), the agent starts with 0 prior reflections so you can showcase the live multi-iteration Reflexion loop! When CHECKED (Warm Start), it injects previously stored reflections to show that the agent learned.",
+    )
+    if st.button("🗑️ Reset Stored Reflections", use_container_width=True, help="Wipe data/reflections.json back to an empty slate"):
+        from app.core.config import settings
+        settings.memory_storage_path.write_text("[]", encoding="utf-8")
+        st.success("Cleared reflection memory store!")
+        st.rerun()
 
     st.divider()
     st.markdown("### \U0001f4da About")
@@ -338,46 +501,136 @@ st.markdown("""
 
 # ── Task Input ───────────────────────────────────────────
 
-col_example, col_spacer = st.columns([3, 1])
-with col_example:
-    selected_example = st.selectbox(
-        "\U0001f4cb Load an example task",
-        options=list(EXAMPLE_TASKS.keys()),
+input_mode = st.radio(
+    "Select Input Method:",
+    options=[
+        "✨ Any Coding Problem (Auto-Solve)",
+        "📋 Pre-Built Benchmark Examples",
+        "📝 Manual Form",
+        "📄 JSON Spec",
+    ],
+    horizontal=True,
+    help="Choose how to supply the coding task. 'Any Coding Problem' lets you paste any question in plain English.",
+)
+
+if input_mode == "✨ Any Coding Problem (Auto-Solve)":
+    st.markdown(
+        "**Paste or type ANY coding question.** The agent will automatically deduce the "
+        "function signature, generate a full unit test suite, and run the self-correcting "
+        "Reflexion loop to deliver a verified solution."
+    )
+    custom_prompt_val = st.text_area(
+        "Your Coding Problem / Requirements",
+        key="custom_prompt_box",
+        height=130,
+        placeholder=(
+            "e.g. 'Write a function that groups anagrams together from a list of words' "
+            "or 'Given a string, check if it has valid matching brackets' "
+            "or paste any LeetCode / interview problem statement..."
+        ),
+        help="Natural language prompt for any coding question or feature.",
     )
 
-# Pre-fill from example if selected
-example_task = EXAMPLE_TASKS.get(selected_example)
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with col_s1:
+        if st.button("💡 Group Anagrams", use_container_width=True):
+            st.session_state.custom_prompt_box = (
+                "Given an array of strings, group the anagrams together. "
+                "Return the groups as a list of lists."
+            )
+            st.session_state.synth_task = None
+            st.session_state.synth_prompt = ""
+            st.session_state.agent_run = None
+            st.rerun()
+    with col_s2:
+        if st.button("💡 Roman to Integer", use_container_width=True):
+            st.session_state.custom_prompt_box = (
+                "Convert a Roman numeral string (e.g. 'IX', 'LVIII', 'MCMXCIV') to an integer."
+            )
+            st.session_state.synth_task = None
+            st.session_state.synth_prompt = ""
+            st.session_state.agent_run = None
+            st.rerun()
+    with col_s3:
+        if st.button("💡 Longest Palindrome Substring", use_container_width=True):
+            st.session_state.custom_prompt_box = (
+                "Given a string s, return the longest palindromic substring in s."
+            )
+            st.session_state.synth_task = None
+            st.session_state.synth_prompt = ""
+            st.session_state.agent_run = None
+            st.rerun()
+    with col_s4:
+        if st.button("💡 Valid Parentheses String", use_container_width=True):
+            st.session_state.custom_prompt_box = (
+                "Given a string containing brackets '(', ')', '{', '}', '[' and ']' "
+                "determine if the input string is valid."
+            )
+            st.session_state.synth_task = None
+            st.session_state.synth_prompt = ""
+            st.session_state.agent_run = None
+            st.rerun()
 
-tab_input, tab_json = st.tabs(["\U0001f4dd Form Input", "\U0001f4c4 JSON Input"])
+    col_synth_btn, _ = st.columns([2, 2])
+    with col_synth_btn:
+        synth_clicked = st.button(
+            "🪄 Synthesize & Preview Test Suite",
+            help="Generate the signature and tests to inspect them before running",
+        )
 
-with tab_input:
+    if synth_clicked:
+        p_text = (st.session_state.get("custom_prompt_box") or custom_prompt_val or "").strip()
+        if not p_text:
+            st.warning("⚠️ Please type or paste a coding question above first.")
+        else:
+            with st.spinner("Synthesizing function signature & unit tests..."):
+                from app.agent.synthesizer import synthesize_task_spec
+                st.session_state.synth_task = synthesize_task_spec(p_text)
+                st.session_state.synth_prompt = p_text
+                st.session_state.agent_run = None
+                st.success(f"✅ Synthesized Task: **{st.session_state.synth_task.task_id}**")
+
+    if st.session_state.synth_task:
+        st.markdown(
+            f"**Task ID:** `{st.session_state.synth_task.task_id}` &nbsp;|&nbsp; "
+            f"**Signature:** `{st.session_state.synth_task.function_signature}`"
+        )
+        with st.expander("🧪 View Generated Test Suite", expanded=True):
+            st.code(st.session_state.synth_task.test_code, language="python")
+
+elif input_mode == "📋 Pre-Built Benchmark Examples":
+    selected_example = st.selectbox(
+        "Choose an example benchmark problem:",
+        options=[k for k in EXAMPLE_TASKS.keys() if k != "Select an example..."],
+    )
+    example_task = EXAMPLE_TASKS.get(selected_example)
+    if example_task:
+        st.markdown(f"**Task ID:** `{example_task.task_id}` &nbsp;|&nbsp; **Signature:** `{example_task.function_signature}`")
+        st.markdown(f"**Description:** {example_task.description}")
+        with st.expander("📋 View Benchmark Tests", expanded=False):
+            st.code(example_task.test_code, language="python")
+
+elif input_mode == "📝 Manual Form":
     col1, col2 = st.columns(2)
     with col1:
-        task_id = st.text_input(
-            "Task ID",
-            value=example_task.task_id if example_task else "my-task",
-            help="A unique identifier for this task",
-        )
-        description = st.text_area(
-            "Problem Description",
-            value=example_task.description if example_task else "",
-            height=120,
-            help="Natural-language description of the coding problem",
-        )
+        task_id = st.text_input("Task ID", value="my-task", help="A unique identifier for this task")
+        description = st.text_area("Problem Description", value="", height=120, help="Natural-language description of the problem")
     with col2:
-        function_signature = st.text_input(
-            "Function Signature",
-            value=example_task.function_signature if example_task else "def solve():",
-            help="The function stub the agent must implement",
-        )
-        test_code = st.text_area(
-            "Test Code (Python)",
-            value=example_task.test_code if example_task else "",
-            height=120,
-            help="Assert-based tests to verify the implementation",
-        )
+        function_signature = st.text_input("Function Signature", value="def solve():", help="The function stub")
+        test_code = st.text_area("Test Code (Python)", value="", height=120, help="Assert-based tests")
 
-with tab_json:
+    if st.button("🪄 Auto-Generate Signature & Tests from Description"):
+        if not description.strip():
+            st.warning("Please enter a Problem Description first.")
+        else:
+            with st.spinner("Generating signature & tests..."):
+                from app.agent.synthesizer import synthesize_task_spec
+                generated_spec = synthesize_task_spec(description.strip())
+                st.session_state.synth_task = generated_spec
+                st.success(f"Generated signature: `{generated_spec.function_signature}`")
+                st.code(generated_spec.test_code, language="python")
+
+elif input_mode == "📄 JSON Spec":
     json_input = st.text_area(
         "Paste a TaskSpec JSON",
         height=200,
@@ -386,16 +639,23 @@ with tab_json:
 
 st.divider()
 
-# ── Run Button ───────────────────────────────────────────
+# ── Run / Clear Buttons ──────────────────────────────────
 
-run_col1, run_col2, run_col3 = st.columns([1, 2, 1])
-with run_col2:
+run_col1, run_col2 = st.columns([3, 1])
+with run_col1:
     run_clicked = st.button(
         "\U0001f680  Run Reflexion Agent",
         type="primary",
         use_container_width=True,
         disabled=st.session_state.is_running,
     )
+with run_col2:
+    if st.button("🧹 Clear Results", use_container_width=True, disabled=st.session_state.is_running):
+        st.session_state.agent_run = None
+        st.session_state.live_iterations = []
+        st.session_state.synth_task = None
+        st.session_state.synth_prompt = ""
+        st.rerun()
 
 # ── Agent Execution ──────────────────────────────────────
 
@@ -405,48 +665,85 @@ if run_clicked:
         st.error("\u274c Please enter your API key in the sidebar.")
         st.stop()
 
-    # Build task from form or JSON
-    try:
-        if json_input and json_input.strip():
-            raw = json.loads(json_input)
-            task = TaskSpec(**raw)
-        else:
-            task = TaskSpec(
-                task_id=task_id,
-                description=description,
-                function_signature=function_signature,
-                test_code=test_code,
-            )
-    except Exception as e:
-        st.error(f"\u274c Invalid task: {e}")
-        st.stop()
-
-    # Configure the LLM settings
+    # Configure the LLM settings early
     import os
     os.environ["MODEL_NAME"] = model_name
     os.environ["TEMPERATURE"] = str(temperature)
     os.environ["MAX_ITERATIONS"] = str(max_iterations)
     os.environ["EXECUTION_TIMEOUT_SECONDS"] = str(timeout)
 
-    # Set API key based on model
-    if "gemini" in model_name.lower():
-        os.environ["GEMINI_API_KEY"] = api_key
-    elif "claude" in model_name.lower() or "anthropic" in model_name.lower():
-        os.environ["ANTHROPIC_API_KEY"] = api_key
-    else:
-        os.environ["OPENAI_API_KEY"] = api_key
+    # Set API key based on model if provided
+    if api_key.strip():
+        if "gemini" in model_name.lower():
+            os.environ["GEMINI_API_KEY"] = api_key.strip()
+        elif "claude" in model_name.lower() or "anthropic" in model_name.lower():
+            os.environ["ANTHROPIC_API_KEY"] = api_key.strip()
+        else:
+            os.environ["OPENAI_API_KEY"] = api_key.strip()
 
     # Reload settings
     from app.core.config import Settings
+    import app.core.config
     settings = Settings()
+    app.core.config.settings = settings
+    settings.inject_api_keys()
+
+    # Determine task strictly based on active input_mode
+    try:
+        if input_mode == "✨ Any Coding Problem (Auto-Solve)":
+            prompt_text = (st.session_state.get("custom_prompt_box") or custom_prompt_val or "").strip()
+            if not prompt_text:
+                st.error("❌ Please enter a coding question or problem description above.")
+                st.stop()
+            if st.session_state.get("synth_task") and st.session_state.get("synth_prompt") == prompt_text:
+                task = st.session_state.synth_task
+            else:
+                with st.spinner("✨ Synthesizing signature & test suite from your question..."):
+                    from app.agent.synthesizer import synthesize_task_spec
+                    task = synthesize_task_spec(prompt_text)
+                    st.session_state.synth_task = task
+                    st.session_state.synth_prompt = prompt_text
+            st.info(f"🎯 **Target Function:** `{task.function_signature}` (Task ID: `{task.task_id}`)")
+            with st.expander("🧪 Synthesized Unit Tests", expanded=False):
+                st.code(task.test_code, language="python")
+
+        elif input_mode == "📋 Pre-Built Benchmark Examples":
+            task = EXAMPLE_TASKS[selected_example]
+
+        elif input_mode == "📝 Manual Form":
+            if not description.strip() or not function_signature.strip() or not test_code.strip():
+                st.error("❌ Please fill in Problem Description, Function Signature, and Test Code.")
+                st.stop()
+            task = TaskSpec(
+                task_id=task_id.strip() or "custom-task",
+                description=description.strip(),
+                function_signature=function_signature.strip(),
+                test_code=test_code.strip(),
+            )
+
+        elif input_mode == "📄 JSON Spec":
+            if not json_input.strip():
+                st.error("❌ Please paste a valid TaskSpec JSON.")
+                st.stop()
+            raw = json.loads(json_input)
+            task = TaskSpec(**raw)
+
+    except Exception as e:
+        st.error(f"❌ Invalid task: {e}")
+        st.stop()
 
     # Run the agent with live UI updates
     st.session_state.is_running = True
+    st.session_state.agent_run = None
     st.session_state.live_iterations = []
 
     store = ReflectionStore(settings.memory_storage_path)
     buffer = TrajectoryBuffer()
-    prior_reflections = store.get_for_task(task.task_id)
+    prior_reflections = store.get_for_task(task.task_id) if warm_start else []
+    if warm_start and prior_reflections:
+        st.info(f"🧠 Warm Start Active: Injected {len(prior_reflections)} prior reflection(s) from memory.")
+    elif not warm_start:
+        st.caption("❄️ Cold Start Active: Starting fresh with 0 prior reflections.")
 
     results_container = st.container()
     progress_bar = st.progress(0, text="Starting agent...")
@@ -471,8 +768,11 @@ if run_clicked:
             # -- Actor -------------------------------------------------
             with st.spinner(f"\U0001f3ad Actor generating code (iteration {iteration})..."):
                 all_reflections = prior_reflections + buffer.reflections
+                prev_code = (
+                    buffer.last_attempt.generated_code if buffer.last_attempt else None
+                )
                 try:
-                    code = generate_code(task, all_reflections)
+                    code = generate_code(task, all_reflections, previous_code=prev_code)
                 except Exception as e:
                     st.error(f"\u274c Actor failed: {e}")
                     break

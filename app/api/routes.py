@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.schemas import AgentRun, TaskSpec
@@ -51,6 +52,11 @@ def health() -> dict:
     }
 
 
+class PromptRequest(BaseModel):
+    prompt: str
+    max_iterations: int | None = None
+
+
 @app.post("/solve", response_model=AgentRun)
 def solve(task: TaskSpec, max_iterations: int | None = None) -> AgentRun:
     """
@@ -60,6 +66,17 @@ def solve(task: TaskSpec, max_iterations: int | None = None) -> AgentRun:
     including all attempts, reflections, and the final outcome.
     """
     return run_reflexion_loop(task, _store, max_iterations=max_iterations)
+
+
+@app.post("/solve-prompt", response_model=AgentRun)
+def solve_prompt(request: PromptRequest) -> AgentRun:
+    """
+    Synthesize an executable specification and test suite from an arbitrary
+    natural-language coding question, and solve it via the Reflexion loop.
+    """
+    from app.agent.synthesizer import synthesize_task_spec
+    task = synthesize_task_spec(request.prompt)
+    return run_reflexion_loop(task, _store, max_iterations=request.max_iterations)
 
 
 @app.get("/reflections")
